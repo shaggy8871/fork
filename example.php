@@ -1,47 +1,82 @@
 <?php
 
+include_once("vendor/autoload.php");
+
 use Fork\Fork;
 use Fork\ChildProcess;
 
-//**** Examples:
-//---
-//--- Callback model -----------------------
+/**
+ * Examples:
+ * Callback model -----------------------
+ */
 
-$parent = new Fork::createChildren(['test1', 'test2'], function(ChildProcess $child) {
+$parent = Fork::createChildren(['test1', 'test2'], function(ChildProcess $child) {
 
-    $child->notifyParent('Got param ' . $child->getKey());
-    $child->notifyParent('Got param ' . $child->getKey());
+    $child->sendToParent('Hello parent, I got ' . $child->getKey() . ' and "' . $child->receivedFromParent() . '" from you');
+
+    sleep(5);
+
+    $child->sendToParent('Still here?');
+
+    //... do work
 
 });
+
+$parent->broadcast('Hello children');
+
+// Wait a second to ensure children have had a chance to fork
+sleep(1);
+
+// Display output from buffer
+print_r($parent->receivedFromChildren());
 
 // Wait for all children to finish running...
 $parent->waitForChildren();
 
-// Display output
-print_r($parent->receive());
+// Display output from buffer
+print_r($parent->receivedFromChildren());
 
 // Ask the parent to clean up after itself
 $parent->cleanup();
 
-//--- Freeflow model -----------------------
+/**
+ * Freeflow model -----------------------
+ */
 
-$ps = new Fork::createChildren(['test1', 'test2']);
+$ps = Fork::createChildren(['test1', 'test2']);
 
 if ($ps->isParent()) {
 
+    $ps->broadcast('Hello children');
+
+    // Wait a second to ensure children have had a chance to fork
+    sleep(1);
+
+    // Display output from buffer
+    print_r($ps->receivedFromChildren());
+
     // Wait for all children to finish running...
-    while ($ps->hasChildrenRunning()) {
-        sleep(1);
-    }
+    $ps->waitForChildren();
 
-    print_r($ps->receive());
+    // Display output from buffer
+    print_r($ps->receivedFromChildren());
 
+    // Ask the parent to clean up after itself
     $ps->cleanup();
-    die();
+
+    exit(0);
+
+} else {
+
+    $ps->sendToParent('Hello parent, I got ' . $ps->getKey() . ' and "' . $ps->receivedFromParent() . '" from you');
+
+    sleep(5);
+
+    $ps->sendToParent('Still here?');
+
+    //... do work
+
+    // Child must shut itself down properly
+    $ps->shutdown();
+
 }
-
-$ps->notifyParent('Starting up with param ' . $ps->getKey());
-
-//... do work
-
-$ps->shutdown();

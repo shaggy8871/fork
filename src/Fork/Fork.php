@@ -26,22 +26,24 @@ class Fork
         $parent = null;
 
         for ($x = 0; $x < $childCount; $x++) {
-            $pid = pcntl_fork();
-            $key = isset($children[$x]) ? $children[$x] : $x;
             // Create a socket pair so parent and child can communicate
             list($parentSocket, $childSocket) = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+            $pid = pcntl_fork();
+            $key = isset($children[$x]) ? $children[$x] : $x;
             switch ($pid) {
                 case -1:
                     throw new \Exception('Unable to fork');
                 case 0:
                     // Child doesn't need parentSocket
                     fclose($parentSocket);
+                    // Enable non-blocking mode
+                    stream_set_blocking($childSocket, 0);
                     // Create the child process object and send in the startup parameters
                     $child = new ChildProcess($key, $childSocket);
                     // Two modes of operation here - callback or freeflow
-                    if ($callable) {
+                    if ($callback) {
                         // Call the user defined function and send in the process object
-                        call_user_func($callable, $child);
+                        call_user_func($callback, $child);
                         // Kill the child process
                         $child->shutdown();
                     } else {
@@ -51,6 +53,8 @@ class Fork
                 default:
                     // Parent doesn't need childSocket
                     fclose($childSocket);
+                    // Enable non-blocking mode
+                    stream_set_blocking($parentSocket, 0);
                     // Initialized here to prevent children from having an instance
                     if (!($parent instanceof ParentProcess)) {
                         $parent = new ParentProcess();

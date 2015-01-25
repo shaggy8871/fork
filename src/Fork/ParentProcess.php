@@ -62,12 +62,14 @@ class ParentProcess implements ProcessInterface
     /*
      * Collect all received content and send it back
      */
-    public function receive()
+    public function receivedFromChildren($maxLength = -1)
     {
 
         $output = [];
+
         foreach($this->children as $child) {
-            $output[$child->getKey()] = stream_get_contents($child->getSocket());
+            $key = $child->getKey();
+            $output[$key] = stream_get_contents($child->getSocket(), $maxLength);
         }
 
         return $output;
@@ -86,6 +88,7 @@ class ParentProcess implements ProcessInterface
 
             foreach($this->children as $child) {
                 if (!$child->isRunning()) {
+                    $childrenRunning--;
                     continue;
                 }
                 $res = pcntl_waitpid($child->getPid(), $status, WNOHANG);
@@ -127,7 +130,7 @@ class ParentProcess implements ProcessInterface
     {
 
         foreach($this->children as $child) {
-            stream_socket_shutdown($child->getSocket(), STREAM_SHUT_RDWR);
+            fclose($child->getSocket());
         }
 
     }

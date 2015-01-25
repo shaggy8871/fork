@@ -59,7 +59,7 @@ class ChildProcess implements ProcessInterface
     /*
      * Sends a message to the parent
      */
-    public function notifyParent($message)
+    public function sendToParent($message)
     {
 
         fwrite($this->socket, $message);
@@ -69,10 +69,10 @@ class ChildProcess implements ProcessInterface
     /*
      * Returns any content broadcast by the parent process
      */
-    public function receive()
+    public function receivedFromParent($maxLength = -1)
     {
 
-        return stream_get_contents($this->socket);
+        return stream_get_contents($this->socket, $maxLength);
 
     }
 
@@ -82,7 +82,8 @@ class ChildProcess implements ProcessInterface
     public function shutdown()
     {
 
-        stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
+        fclose($this->socket);
+
         exit(0);
 
     }
