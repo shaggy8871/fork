@@ -4,6 +4,7 @@ include_once("vendor/autoload.php");
 
 use Fork\Fork;
 use Fork\ChildProcess;
+use Fork\Child;
 
 /**
  * Examples:
@@ -12,28 +13,32 @@ use Fork\ChildProcess;
 
 $parent = Fork::createChildren(['test1', 'test2'], function(ChildProcess $child) {
 
+    // Wait 1 second to allow the broadcast to come through
+    sleep(1);
+
     $child->sendToParent('Hello parent, I got ' . $child->getKey() . ' and "' . $child->receivedFromParent() . '" from you');
 
-    sleep(5);
+    // Wait a random amount of time
+    $r = rand(1, 10);
+    sleep($r);
 
-    $child->sendToParent('Still here?');
+    $child->sendToParent('Still here after ' . $r . ' seconds?');
 
     //... do work
 
 });
 
+// Add a listener to get messages from children immediately
+$parent->addEventListener('onMessageWaiting', function(Child $child, $message) {
+    echo "Got message " . $message . " from child " . $child->getPid() . "\n";
+});
+
 $parent->broadcast('Hello children');
-
-// Wait a second to ensure children have had a chance to fork
-sleep(1);
-
-// Display output from buffer
-print_r($parent->receivedFromChildren());
 
 // Wait for all children to finish running...
 $parent->waitForChildren();
 
-// Display output from buffer
+// Display remaining output from buffer
 print_r($parent->receivedFromChildren());
 
 // Ask the parent to clean up after itself
@@ -43,6 +48,7 @@ $parent->cleanup();
  * Freeflow model -----------------------
  */
 
+/*
 $ps = Fork::createChildren(['test1', 'test2']);
 
 if ($ps->isParent()) {
@@ -80,3 +86,4 @@ if ($ps->isParent()) {
     $ps->shutdown();
 
 }
+*/

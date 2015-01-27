@@ -64,6 +64,9 @@ class ChildProcess implements ProcessInterface
 
         fwrite($this->socket, $message);
 
+        // Make sure the parent gets it
+        usleep(Fork::WAIT_TIMEOUT);
+
     }
 
     /*

@@ -5,7 +5,8 @@ namespace Fork;
 class ParentProcess implements ProcessInterface
 {
 
-    protected $children = array();
+    protected $children = [];
+    protected $events = [];
 
     /*
      * Returns true if I am a child process
@@ -60,6 +61,26 @@ class ParentProcess implements ProcessInterface
     }
 
     /*
+     * Register an event listener
+     */
+    public function addEventListener($event, callable $callback)
+    {
+
+        $this->events[$event] = $callback;
+
+    }
+
+    /*
+     * Remove an event listener
+     */
+    public function removeEventListener($event)
+    {
+
+        $this->events[$event] = null;
+
+    }
+
+    /*
      * Collect all received content and send it back
      */
     public function receivedFromChildren($maxLength = -1)
@@ -95,10 +116,21 @@ class ParentProcess implements ProcessInterface
                 if (($res == -1) || ($res > 0)) {
                     $child->setRunningStatus(false, pcntl_wexitstatus($status));
                     $childrenRunning--;
+                } else {
+                    // Check for any messages waiting
+                    $output = stream_get_contents($child->getSocket());
+                    if (($output) && (isset($this->events['onMessageWaiting'])) && (is_callable($this->events['onMessageWaiting']))) {
+                        call_user_func($this->events['onMessageWaiting'], $child, $output);
+                    }
                 }
             }
 
-            sleep(1);
+            if ($childrenRunning > 0) {
+                // Sleep for 0.1 seconds
+                usleep(Fork::WAIT_TIMEOUT);
+                // Then check again
+                $childrenRunning = count($this->children);
+            }
 
         }
 

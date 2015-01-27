@@ -5,6 +5,8 @@ namespace Fork;
 class Fork
 {
 
+    const WAIT_TIMEOUT = 100000;
+
     /*
      * Fork the specified number of children. If $children is an array of objects,
      * each child will be passed its own object as a parameter.
