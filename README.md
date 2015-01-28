@@ -8,11 +8,11 @@ In composer.json:
 "repositories": [
     {
         "type": "vcs",
-        "url": "https://github.com/shaggy8871/Fork"
+        "url": "https://github.com/shaggy8871/fork"
     }
 ],
 "require": {
-    "Fork": "dev-master"
+    "shaggy8871/fork": "dev-master"
 }
 ```
 
