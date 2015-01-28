@@ -74,6 +74,16 @@ class Child
     }
 
     /*
+     * Returns true if the stream is still open
+     */
+    public function isActive()
+    {
+
+        return socket_get_status($this->socket);
+
+    }
+
+    /*
      * If the child has stopped, return the exit code reported
      */
     public function getExitCode()

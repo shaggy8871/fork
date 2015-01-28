@@ -2,16 +2,12 @@
 
 include_once("vendor/autoload.php");
 
-use Fork\Fork;
-use Fork\ChildProcess;
-use Fork\Child;
-
 /**
  * Examples:
  * Callback model -----------------------
  */
 
-$parent = Fork::createChildren(['test1', 'test2'], function(ChildProcess $child) {
+Fork\Fork::createChildren(['test1', 'test2'], function(Fork\ChildProcess $child) {
 
     // Wait 1 second to allow the broadcast to come through
     sleep(1);
@@ -26,23 +22,22 @@ $parent = Fork::createChildren(['test1', 'test2'], function(ChildProcess $child)
 
     //... do work
 
+})->then(function(Fork\ParentProcess $parent) {
+
+    $parent->broadcast('Hello children');
+
+    // Wait for all children to finish running and handle messages
+    $parent->waitForChildren(function($message, Fork\Child $child) {
+        echo "Got message " . $message . " from child " . $child->getPid() . "\n";
+    });
+
+    // Display remaining output from buffer
+    print_r($parent->receivedFromChildren());
+
+    // Ask the parent to clean up after itself
+    $parent->cleanup();
+
 });
-
-// Add a listener to get messages from children immediately
-$parent->addEventListener('onMessageWaiting', function(Child $child, $message) {
-    echo "Got message " . $message . " from child " . $child->getPid() . "\n";
-});
-
-$parent->broadcast('Hello children');
-
-// Wait for all children to finish running...
-$parent->waitForChildren();
-
-// Display remaining output from buffer
-print_r($parent->receivedFromChildren());
-
-// Ask the parent to clean up after itself
-$parent->cleanup();
 
 /**
  * Freeflow model -----------------------

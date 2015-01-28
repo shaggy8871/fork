@@ -6,7 +6,6 @@ class ParentProcess implements ProcessInterface
 {
 
     protected $children = [];
-    protected $events = [];
 
     /*
      * Returns true if I am a child process
@@ -55,28 +54,14 @@ class ParentProcess implements ProcessInterface
     {
 
         foreach($this->children as $child) {
-            fwrite($child->getSocket(), $message);
+            if ($child->isRunning()) {
+                $written = @fwrite($child->getSocket(), $message);
+                // If we can't write, assume it's finished
+                if ($written === false) {
+                    $child->setRunningStatus(false);
+                }
+            }
         }
-
-    }
-
-    /*
-     * Register an event listener
-     */
-    public function addEventListener($event, callable $callback)
-    {
-
-        $this->events[$event] = $callback;
-
-    }
-
-    /*
-     * Remove an event listener
-     */
-    public function removeEventListener($event)
-    {
-
-        $this->events[$event] = null;
 
     }
 
@@ -89,8 +74,16 @@ class ParentProcess implements ProcessInterface
         $output = [];
 
         foreach($this->children as $child) {
-            $key = $child->getKey();
-            $output[$key] = stream_get_contents($child->getSocket(), $maxLength);
+            if ($child->isRunning()) {
+                $key = $child->getKey();
+                $contents = stream_get_contents($child->getSocket(), $maxLength);
+                if ($contents !== false) {
+                    $output[$key] = $contents;
+                } else {
+                    // If we can't read, assume it's finished
+                    $child->setRunningStatus(false);
+                }
+            }
         }
 
         return $output;
@@ -100,7 +93,7 @@ class ParentProcess implements ProcessInterface
     /*
      * Wait for all children to stop running
      */
-    public function waitForChildren()
+    public function waitForChildren(callable $callback = null)
     {
 
         $childrenRunning = count($this->children);
@@ -119,8 +112,8 @@ class ParentProcess implements ProcessInterface
                 } else {
                     // Check for any messages waiting
                     $output = stream_get_contents($child->getSocket());
-                    if (($output) && (isset($this->events['onMessageWaiting'])) && (is_callable($this->events['onMessageWaiting']))) {
-                        call_user_func($this->events['onMessageWaiting'], $child, $output);
+                    if (($output) && (isset($callback))) {
+                        call_user_func($callback, $output, $child);
                     }
                 }
             }
@@ -164,6 +157,16 @@ class ParentProcess implements ProcessInterface
         foreach($this->children as $child) {
             fclose($child->getSocket());
         }
+
+    }
+
+    /*
+     * Syntactic sugar method that allows for a then() call after forking
+     */
+    public function then(callable $callback)
+    {
+
+        call_user_func($callback, $this);
 
     }
 
