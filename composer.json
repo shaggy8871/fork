@@ -1,4 +1,20 @@
 {
+    "name": "Fork",
+    "description": "Fork makes it simple to fork and run multiple child processes from PHP.",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "J. Ginsberg",
+            "email": "john.ginsberg@tristadeca.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {
+        "php": ">=5.4.1"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "4.4.*"
+    },
     "autoload": {
         "psr-0": {
             "Fork\\": "src/"
