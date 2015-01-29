@@ -3,6 +3,8 @@ Fork makes it simple to fork and run multiple child processes from PHP.
 
 ### Installation
 
+Make sure [PCNTL](http://php.net/manual/en/book.pcntl.php) is installed. This library only works via [php-cli](http://php.net/manual/en/features.commandline.php).
+
 In composer.json:
 ```
 "repositories": [
