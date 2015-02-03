@@ -1,6 +1,8 @@
 # Fork
 Fork makes it simple to fork and run multiple child processes from PHP.
 
+[![Build Status](https://travis-ci.org/shaggy8871/fork.svg?branch=master)](https://travis-ci.org/shaggy8871/fork)
+
 ### Installation
 
 Make sure [PCNTL](http://php.net/manual/en/book.pcntl.php) is installed. This library only works via [php-cli](http://php.net/manual/en/features.commandline.php).
