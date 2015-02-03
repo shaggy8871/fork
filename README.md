@@ -9,12 +9,6 @@ Make sure [PCNTL](http://php.net/manual/en/book.pcntl.php) is installed. This li
 
 In composer.json:
 ```
-"repositories": [
-    {
-        "type": "vcs",
-        "url": "https://github.com/shaggy8871/fork"
-    }
-],
 "require": {
     "shaggy8871/fork": "dev-master"
 }
