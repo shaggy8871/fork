@@ -62,7 +62,7 @@ class ChildProcess implements ProcessInterface
     public function sendToParent($message)
     {
 
-        fwrite($this->socket, $message);
+        fwrite($this->socket, serialize($message));
 
         // Make sure the parent gets it
         usleep(Fork::WAIT_TIMEOUT);
@@ -75,7 +75,7 @@ class ChildProcess implements ProcessInterface
     public function receivedFromParent($maxLength = -1)
     {
 
-        return stream_get_contents($this->socket, $maxLength);
+        return unserialize(stream_get_contents($this->socket, $maxLength));
 
     }
 

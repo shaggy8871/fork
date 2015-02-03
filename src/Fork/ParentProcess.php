@@ -5,7 +5,15 @@ namespace Fork;
 class ParentProcess implements ProcessInterface
 {
 
-    protected $children = [];
+    protected $children;
+    protected $messageQueue = [];
+
+    public function __construct()
+    {
+
+        $this->children = new \SplObjectStorage();
+
+    }
 
     /*
      * Returns true if I am a child process
@@ -33,12 +41,12 @@ class ParentProcess implements ProcessInterface
     public function addChild(Child $child)
     {
 
-        $this->children[] = $child;
+        $this->children->attach($child);
 
     }
 
     /*
-     * Returns an array of Child objects for the children
+     * Returns an SplObjectStorage object of Child objects for the children
      */
     public function getChildren()
     {
@@ -53,14 +61,24 @@ class ParentProcess implements ProcessInterface
     public function broadcast($message)
     {
 
-        foreach($this->children as $child) {
+        // Reset...
+        $this->children->rewind();
+
+        while($this->children->valid()) {
+
+            $child = $this->children->current();
+
             if ($child->isRunning()) {
-                $written = @fwrite($child->getSocket(), $message);
+                $written = @fwrite($child->getSocket(), serialize($message));
                 // If we can't write, assume it's finished
                 if ($written === false) {
                     $child->setRunningStatus(false);
                 }
             }
+
+            // Iterate...
+            $this->children->next();
+
         }
 
     }
@@ -71,19 +89,33 @@ class ParentProcess implements ProcessInterface
     public function receivedFromChildren($maxLength = -1)
     {
 
-        $output = [];
+        // Start with the queue
+        $output = $this->getMessageQueue();
 
-        foreach($this->children as $child) {
+        // Clear it before we process what's waiting now
+        $this->clearMessageQueue();
+
+        // Reset...
+        $this->children->rewind();
+
+        while($this->children->valid()) {
+
+            $child = $this->children->current();
+
             if ($child->isRunning()) {
                 $key = $child->getKey();
                 $contents = stream_get_contents($child->getSocket(), $maxLength);
-                if ($contents !== false) {
-                    $output[$key] = $contents;
+                if (trim($contents) != '') {
+                    $output[$key] = unserialize($contents);
                 } else {
                     // If we can't read, assume it's finished
                     $child->setRunningStatus(false);
                 }
             }
+
+            // Iterate...
+            $this->children->next();
+
         }
 
         return $output;
@@ -96,13 +128,20 @@ class ParentProcess implements ProcessInterface
     public function waitForChildren(callable $callback = null)
     {
 
-        $childrenRunning = count($this->children);
+        $childrenRunning = $this->children->count();
 
         while ($childrenRunning) {
 
-            foreach($this->children as $child) {
+            // Reset...
+            $this->children->rewind();
+
+            while($this->children->valid()) {
+
+                $child = $this->children->current();
+
                 if (!$child->isRunning()) {
                     $childrenRunning--;
+                    $this->children->next();
                     continue;
                 }
                 $res = pcntl_waitpid($child->getPid(), $status, WNOHANG);
@@ -111,18 +150,26 @@ class ParentProcess implements ProcessInterface
                     $childrenRunning--;
                 } else {
                     // Check for any messages waiting
-                    $output = stream_get_contents($child->getSocket());
-                    if (($output) && (isset($callback))) {
-                        call_user_func($callback, $output, $child);
+                    $contents = stream_get_contents($child->getSocket());
+                    if ((trim($contents) != '') && (false !== ($contents = unserialize($contents)))) {
+                        if ($callback != null) {
+                            call_user_func($callback, $contents, $child);
+                        } else {
+                            $this->addToMessageQueue($child, $contents);
+                        }
                     }
                 }
+
+                // Iterate...
+                $this->children->next();
+
             }
 
             if ($childrenRunning > 0) {
                 // Sleep for 0.1 seconds
                 usleep(Fork::WAIT_TIMEOUT);
                 // Then check again
-                $childrenRunning = count($this->children);
+                $childrenRunning = $this->children->count();
             }
 
         }
@@ -137,11 +184,21 @@ class ParentProcess implements ProcessInterface
 
         $childrenRunning = 0;
 
-        foreach($this->children as $child) {
+        // Reset...
+        $this->children->rewind();
+
+        while($this->children->valid()) {
+
+            $child = $this->children->current();
+
             $res = pcntl_waitpid($child->getPid(), $status, WNOHANG);
             if ($res == 0) {
                 $childrenRunning++;
             }
+
+            // Iterate...
+            $this->children->next();
+
         }
 
         return $childrenRunning > 0;
@@ -154,8 +211,16 @@ class ParentProcess implements ProcessInterface
     public function cleanup()
     {
 
-        foreach($this->children as $child) {
-            fclose($child->getSocket());
+        // Reset...
+        $this->children->rewind();
+
+        while($this->children->valid()) {
+
+            fclose($this->children->current()->getSocket());
+
+            // Iterate...
+            $this->children->next();
+
         }
 
     }
@@ -167,6 +232,46 @@ class ParentProcess implements ProcessInterface
     {
 
         call_user_func($callback, $this);
+
+    }
+
+    /*
+     * Add a message to the message queue
+     */
+    protected function addToMessageQueue(Child $child, $message)
+    {
+
+        $childKey = $child->getKey();
+        $this->messageQueue[$childKey][] = $message;
+
+    }
+
+    /*
+     * Return the message queue for a specific child, or all children
+     */
+    protected function getMessageQueue(Child $child = null)
+    {
+
+        if ($child) {
+            $childKey = $child->getKey();
+            return (isset($this->messageQueue[$childKey]) ? $this->messageQueue[$childKey] : null);
+        } else {
+            return $this->messageQueue;
+        }
+
+    }
+
+    /*
+     * Clear the message queue for a specific child or all children
+     */
+    protected function clearMessageQueue(Child $child = null)
+    {
+
+        if ($child) {
+            unset($this->messageQueue[$childKey]);
+        } else {
+            reset($this->messageQueue);
+        }
 
     }
 
